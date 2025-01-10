@@ -67,42 +67,70 @@ void cleanup(Resources *res) {
     printf("Klient: Korektne ukončený.\n");
 }
 
-void game_loop(Resources *res) {
-    while (1) {
-        // Čaká na signál od servera, že je pripravený nový stav hry
-        sem_wait(res->sem_server_ready);
+void *input_thread(void *arg) {
+    Resources *res = (Resources *)arg;
+    char input;
 
-        // Zámok pre bezpečné čítanie zdieľanej pamäte
+    printf("Klient: Začínam spracovanie vstupu.\n");
+
+    while (1) {
+        input = getchar();
+
         pthread_mutex_lock(&res->shared_data->mutex);
 
-        // Prečítanie a zobrazenie aktuálneho stavu hry
-        printf("Klient: Hra prebieha... Skóre: %d, Uplynutý čas: %d sekúnd\n",
-               res->shared_data->game.score,
-               res->shared_data->game.elapsed_time);
+        if (res->shared_data->game.status == GAME_OVER) {
+            pthread_mutex_unlock(&res->shared_data->mutex);
+            break;  // Ukonči vlákno, ak je hra skončená
+        }
 
-        // Výpis stavu herného sveta (mriežky)
+        if (input == 'p') {
+            res->shared_data->game.pause_choice = PAUSE_CONTINUE;  // Príklad spracovania pauzy
+        } else if (input == 'w' || input == 'a' || input == 's' || input == 'd') {
+            res->shared_data->game.grid.snake.direction = (Direction)input;  // Nastavenie smeru
+        }
+
+        pthread_mutex_unlock(&res->shared_data->mutex);
+
+        sem_post(res->sem_client_ready);  // Signalizácia serveru
+    }
+
+    return NULL;
+}
+
+void *render_thread(void *arg) {
+    Resources *res = (Resources *)arg;
+
+    while (1) {
+        sem_wait(res->sem_server_ready);  // Čaká na signál od servera
+
+        pthread_mutex_lock(&res->shared_data->mutex);
+        GameStatus status = res->shared_data->game.status;
+        int elapsed_time = res->shared_data->game.elapsed_time;
+        int score = res->shared_data->game.score;
+        
+        printf("\033[H\033[J");
         for (int y = 0; y < res->shared_data->game.grid.height; y++) {
             for (int x = 0; x < res->shared_data->game.grid.width; x++) {
                 printf("%c ", res->shared_data->game.grid.grid[y][x]);
             }
             printf("\n");
         }
-        printf("\n");
+        pthread_mutex_unlock(&res->shared_data->mutex);
 
-        // Kontrola ukončenia hry
-        if (res->shared_data->game.status == GAME_OVER) {
-            pthread_mutex_unlock(&res->shared_data->mutex);
+        printf("Čas: %d sekúnd | Skóre: %d\n", elapsed_time, score);
+
+        if (status == GAME_OVER) {
+            printf("Klient: Hra skončila.\n");
             break;
         }
-        pthread_mutex_unlock(&res->shared_data->mutex);
     }
 
-    printf("Klient: Hra skončila. Finálne skóre: %d\n", res->shared_data->game.score);
+    return NULL;
 }
-
 
 int main() {
     Resources res;
+    pthread_t input_tid, render_tid;
 
     // Pripojenie k zdieľanej pamäti
     if (connect_to_shm(&res) != 0) {
@@ -117,8 +145,27 @@ int main() {
 
     printf("Klient: Pripojenie k zdieľaným zdrojom úspešné.\n");
 
-    // Spustenie hernej slučky
-    game_loop(&res);
+    // Nastavenie neblokujúceho režimu na stdin
+    int flags = fcntl(STDIN_FILENO, F_GETFL, 0);
+    fcntl(STDIN_FILENO, F_SETFL, flags | O_NONBLOCK);
+
+    // Vytvorenie vlákna na spracovanie vstupu
+    if (pthread_create(&input_tid, NULL, input_thread, &res) != 0) {
+        perror("Chyba pri vytváraní vlákna na spracovanie vstupu");
+        cleanup(&res);
+        return 1;
+    }
+
+    // Vytvorenie vlákna na vykresľovanie
+    if (pthread_create(&render_tid, NULL, render_thread, &res) != 0) {
+        perror("Chyba pri vytváraní vlákna na vykresľovanie");
+        cleanup(&res);
+        return 1;
+    }
+
+    // Počkaj na ukončenie oboch vlákien
+    pthread_join(input_tid, NULL);
+    pthread_join(render_tid, NULL);
 
     // Korektné ukončenie klienta
     cleanup(&res);

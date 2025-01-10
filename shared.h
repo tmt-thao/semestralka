@@ -17,10 +17,10 @@
 #define SEM_CLIENT_READY        "/sem_client_ready_TM"
 
 typedef enum {
-    UP      = 'W',
-    LEFT    = 'A',
-    DOWN    = 'S',
-    RIGHT   = 'D'
+    UP      = 'w',
+    LEFT    = 'a',
+    DOWN    = 's',
+    RIGHT   = 'd'
 } Direction;
 
 typedef enum {

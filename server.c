@@ -6,6 +6,8 @@
 #include <unistd.h>
 #include <signal.h>
 #include <time.h>
+#include <pthread.h>
+
 
 #include "shared.h"
 
@@ -183,8 +185,15 @@ void run_game_cycle(Resources *res) {
     printf("Server: Herný cyklus ukončený.\n");
 }
 
+void *game_thread(void *arg) {
+    Resources *res = (Resources *)arg;
+    run_game_cycle(res);  // Spustenie herného cyklu vo vlákne
+    return NULL;
+}
+
 int main() {
     Resources res;
+    pthread_t game_tid;
 
     // Vytvorenie a pripojenie k zdieľanej pamäti
     if (connect_to_shm(&res) != 0) {
@@ -212,8 +221,15 @@ int main() {
     initialize_game(&res.shared_data->game, 20, 20, WRAP_AROUND, TIMED);
     printf("Server: Herný svet inicializovaný, spúšťam hru.\n");
 
-    // Spustenie herného cyklu
-    run_game_cycle(&res);
+    // Vytvorenie herného vlákna
+    if (pthread_create(&game_tid, NULL, game_thread, &res) != 0) {
+        perror("Chyba pri vytváraní herného vlákna");
+        cleanup(&res);
+        return 1;
+    }
+
+    // Počkaj na ukončenie herného vlákna
+    pthread_join(game_tid, NULL);
     printf("Server: Hra skončila. Skóre: %d\n", res.shared_data->game.score);
 
     cleanup(&res);
