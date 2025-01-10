@@ -8,16 +8,6 @@
 
 #include "shared.h"
 
-void cleanup(Resources *res) {
-    if (res->shared_data != (void *)-1) {
-        shmdt(res->shared_data);
-    }
-    sem_close(res->sem_server_ready);
-    sem_close(res->sem_client_ready);
-
-    printf("Klient: Korektne ukončený.\n");
-}
-
 int connect_to_shm(Resources *res) {
     res->shmid = shmget(SHM_KEY, sizeof(SharedData), 0666);
     if (res->shmid == -1) {
@@ -67,6 +57,50 @@ int connect_to_sem(Resources *res) {
     return 0;
 }
 
+void cleanup(Resources *res) {
+    if (res->shared_data != (void *)-1) {
+        shmdt(res->shared_data);
+    }
+    sem_close(res->sem_server_ready);
+    sem_close(res->sem_client_ready);
+
+    printf("Klient: Korektne ukončený.\n");
+}
+
+void game_loop(Resources *res) {
+    while (1) {
+        // Čaká na signál od servera, že je pripravený nový stav hry
+        sem_wait(res->sem_server_ready);
+
+        // Zámok pre bezpečné čítanie zdieľanej pamäte
+        pthread_mutex_lock(&res->shared_data->mutex);
+
+        // Prečítanie a zobrazenie aktuálneho stavu hry
+        printf("Klient: Hra prebieha... Skóre: %d, Uplynutý čas: %d sekúnd\n",
+               res->shared_data->game.score,
+               res->shared_data->game.elapsed_time);
+
+        // Výpis stavu herného sveta (mriežky)
+        for (int y = 0; y < res->shared_data->game.grid.height; y++) {
+            for (int x = 0; x < res->shared_data->game.grid.width; x++) {
+                printf("%c ", res->shared_data->game.grid.grid[y][x]);
+            }
+            printf("\n");
+        }
+        printf("\n");
+
+        // Kontrola ukončenia hry
+        if (res->shared_data->game.status == GAME_OVER) {
+            pthread_mutex_unlock(&res->shared_data->mutex);
+            break;
+        }
+        pthread_mutex_unlock(&res->shared_data->mutex);
+    }
+
+    printf("Klient: Hra skončila. Finálne skóre: %d\n", res->shared_data->game.score);
+}
+
+
 int main() {
     Resources res;
 
@@ -77,23 +111,14 @@ int main() {
 
     // Pripojenie k semaforom
     if (connect_to_sem(&res) != 0) {
+        cleanup(&res);
         return 1;
     }
 
     printf("Klient: Pripojenie k zdieľaným zdrojom úspešné.\n");
 
-    // Simulácia čítania stavu hry od servera
-    sem_wait(res.sem_server_ready);  // Čaká na signalizáciu od servera
-    pthread_mutex_lock(&res.shared_data->mutex);
-    printf("Klient: Čítanie stavu hry, dummy_data = %d.\n", res.shared_data->dummy_data);
-    pthread_mutex_unlock(&res.shared_data->mutex);
-
-    // Odoslanie príkazu na zmenu stavu
-    pthread_mutex_lock(&res.shared_data->mutex);
-    printf("Klient: Odosielam príkaz na zmenu dummy_data na 100.\n");
-    res.shared_data->dummy_data = 100;
-    pthread_mutex_unlock(&res.shared_data->mutex);
-    sem_post(res.sem_client_ready);  // Signalizácia serveru, že príkaz je pripravený
+    // Spustenie hernej slučky
+    game_loop(&res);
 
     // Korektné ukončenie klienta
     cleanup(&res);

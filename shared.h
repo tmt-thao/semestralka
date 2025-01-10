@@ -4,13 +4,13 @@
 #include <pthread.h>
 #include <semaphore.h>
 
-#define MAX_WORLD_WIDTH         50
-#define MAX_WORLD_HEIGHT        50
+#define MAX_WIDTH         50
+#define MAX_HEIGHT        50
 #define MAX_SNAKE_LENGTH        200
 #define MAX_OBSTACLES           50
 
-#define GAME_TICK_INTERVAL      5000000    
-#define GAME_CONTINUE_TIMEOUT   30000000
+#define GAME_TICK_INTERVAL      500000    
+#define GAME_CONTINUE_TIMEOUT   3000000
 
 #define SHM_KEY                 55555
 #define SEM_SERVER_READY        "/sem_server_ready_TM"
@@ -76,7 +76,7 @@ typedef struct {
 typedef struct {
     int width;
     int height;
-    GridValue grid[MAX_WORLD_WIDTH][MAX_WORLD_HEIGHT];
+    GridValue grid[MAX_HEIGHT][MAX_WIDTH];
     Fruit fruit;
     Snake snake;
     Obstacles obstacles;
@@ -98,7 +98,6 @@ typedef struct {
 
 typedef struct {
     Game game;
-    int dummy_data;
     pthread_mutex_t mutex;
 } SharedData;
 
