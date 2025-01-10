@@ -4,17 +4,17 @@
 #include <pthread.h>
 #include <semaphore.h>
 
-#define MAX_WORLD_WIDTH     50
-#define MAX_WORLD_HEIGHT    50
-#define MAX_SNAKE_LENGTH    200
-#define MAX_OBSTACLES       50
+#define MAX_WORLD_WIDTH         50
+#define MAX_WORLD_HEIGHT        50
+#define MAX_SNAKE_LENGTH        200
+#define MAX_OBSTACLES           50
 
-#define TICK                5000000    
-#define CONTINUE_GAME       30000000
+#define GAME_TICK_INTERVAL      5000000    
+#define GAME_CONTINUE_TIMEOUT   30000000
 
-#define SHM_KEY             55555
-#define SEM_SERVER_READY    "/sem_server_ready_TM"
-#define SEM_CLIENT_READY    "/sem_client_ready_TM"
+#define SHM_KEY                 55555
+#define SEM_SERVER_READY        "/sem_server_ready_TM"
+#define SEM_CLIENT_READY        "/sem_client_ready_TM"
 
 typedef enum {
     UP      = 'W',

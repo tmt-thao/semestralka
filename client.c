@@ -8,8 +8,6 @@
 
 #include "shared.h"
 
-
-
 void cleanup(Resources *res) {
     if (res->shared_data != (void *)-1) {
         shmdt(res->shared_data);
@@ -20,12 +18,9 @@ void cleanup(Resources *res) {
     printf("Klient: Korektne ukončený.\n");
 }
 
-int main() {
-    Resources res;
-
-    // Skús pripojiť sa k existujúcej zdieľanej pamäti
-    res.shmid = shmget(SHM_KEY, sizeof(SharedData), 0666);
-    if (res.shmid == -1) {
+int connect_to_shm(Resources *res) {
+    res->shmid = shmget(SHM_KEY, sizeof(SharedData), 0666);
+    if (res->shmid == -1) {
         printf("Klient: Server ešte nebeží, spúšťam ho...\n");
 
         // Vytvorenie nového procesu pre server
@@ -44,25 +39,44 @@ int main() {
         sleep(2);  // Krátke čakanie, aby sa server inicializoval
 
         // Znova sa pokús o pripojenie
-        res.shmid = shmget(SHM_KEY, sizeof(SharedData), 0666);
-        if (res.shmid == -1) {
+        res->shmid = shmget(SHM_KEY, sizeof(SharedData), 0666);
+        if (res->shmid == -1) {
             perror("Chyba pri pripojení k zdieľanej pamäti");
             return 1;
         }
     }
 
     // Pripojenie k zdieľanej pamäti
-    res.shared_data = (SharedData *)shmat(res.shmid, NULL, 0);
-    if (res.shared_data == (void *)-1) {
+    res->shared_data = (SharedData *)shmat(res->shmid, NULL, 0);
+    if (res->shared_data == (void *)-1) {
         perror("Chyba pri pripájaní k zdieľanej pamäti");
         return 1;
     }
 
-    // Pripojenie k existujúcim semaforom
-    res.sem_server_ready = sem_open(SEM_SERVER_READY, 0);
-    res.sem_client_ready = sem_open(SEM_CLIENT_READY, 0);
-    if (res.sem_server_ready == SEM_FAILED || res.sem_client_ready == SEM_FAILED) {
+    return 0;
+}
+
+int connect_to_sem(Resources *res) {
+    res->sem_server_ready = sem_open(SEM_SERVER_READY, 0);
+    res->sem_client_ready = sem_open(SEM_CLIENT_READY, 0);
+    if (res->sem_server_ready == SEM_FAILED || res->sem_client_ready == SEM_FAILED) {
         perror("Chyba pri pripájaní k semaforom");
+        return 1;
+    }
+
+    return 0;
+}
+
+int main() {
+    Resources res;
+
+    // Pripojenie k zdieľanej pamäti
+    if (connect_to_shm(&res) != 0) {
+        return 1;
+    }
+
+    // Pripojenie k semaforom
+    if (connect_to_sem(&res) != 0) {
         return 1;
     }
 

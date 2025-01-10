@@ -23,20 +23,39 @@ void cleanup(Resources *res) {
     printf("Server: Korektne ukončený.\n");
 }
 
-int main() {
-    Resources res;
-
-    // Vytvorenie zdieľanej pamäte
-    res.shmid = shmget(SHM_KEY, sizeof(SharedData), IPC_CREAT | 0666);
-    if (res.shmid == -1) {
+int connect_to_shm(Resources *res) {
+    res->shmid = shmget(SHM_KEY, sizeof(SharedData), IPC_CREAT | 0666);
+    if (res->shmid == -1) {
         perror("Chyba pri vytváraní zdieľanej pamäte");
         return 1;
     }
 
     // Pripojenie k zdieľanej pamäti
-    res.shared_data = (SharedData *)shmat(res.shmid, NULL, 0);
-    if (res.shared_data == (void *)-1) {
+    res->shared_data = (SharedData *)shmat(res->shmid, NULL, 0);
+    if (res->shared_data == (void *)-1) {
         perror("Chyba pri pripájaní k zdieľanej pamäti");
+        return 1;
+    }
+
+    return 0;
+}
+
+int connect_to_sem(Resources *res) {
+    res->sem_server_ready = sem_open(SEM_SERVER_READY, O_CREAT, 0666, 0);
+    res->sem_client_ready = sem_open(SEM_CLIENT_READY, O_CREAT, 0666, 0);
+    if (res->sem_server_ready == SEM_FAILED || res->sem_client_ready == SEM_FAILED) {
+        perror("Chyba pri vytváraní semaforov");
+        return 1;
+    }
+
+    return 0;
+}
+
+int main() {
+    Resources res;
+
+    // Vytvorenie a pripojenie k zdieľanej pamäti
+    if (connect_to_shm(&res) != 0) {
         return 1;
     }
 
@@ -47,10 +66,7 @@ int main() {
     }
 
     // Vytvorenie semaforov
-    res.sem_server_ready = sem_open(SEM_SERVER_READY, O_CREAT, 0666, 0);
-    res.sem_client_ready = sem_open(SEM_CLIENT_READY, O_CREAT, 0666, 0);
-    if (res.sem_server_ready == SEM_FAILED || res.sem_client_ready == SEM_FAILED) {
-        perror("Chyba pri vytváraní semaforov");
+        if (connect_to_sem(&res) != 0) {
         return 1;
     }
 
