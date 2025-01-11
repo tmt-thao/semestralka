@@ -103,9 +103,4 @@ typedef struct {
     sem_t sem_client_ready;
 } SharedData;
 
-typedef struct {
-    int shmid;
-    SharedData *shared_data;
-} Resources;
-
 #endif // SHARED_H
