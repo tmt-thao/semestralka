@@ -81,21 +81,21 @@ void move_snake(GameState *state) {
     } else {
         if (new_head.x < 0 || new_head.x >= state->width ||
             new_head.y < 0 || new_head.y >= state->height) {
-            state->game_over_flag = -1;
+            state->game_over_flag = 1;
             return;
         }
     }
 
     for (int i = 0; i < state->num_obstacles; i++) {
         if (new_head.x == state->obstacles[i].x && new_head.y == state->obstacles[i].y) {
-            state->game_over_flag = -1;
+            state->game_over_flag = 1;
             return;
         }
     }
 
     for (int i = 1; i < state->snake_length; i++) {
         if (new_head.x == state->snake[i].x && new_head.y == state->snake[i].y) {
-            state->game_over_flag = -1;
+            state->game_over_flag = 1;
             return;
         }
     }
@@ -180,7 +180,7 @@ int main() {
         shared_data->state.elapsed_time = time(NULL) - start_time;
         if (shared_data->state.timed_mode &&
             shared_data->state.elapsed_time >= shared_data->state.time_limit) {
-            shared_data->state.game_over_flag = -1;
+            shared_data->state.game_over_flag = 1;
             pthread_mutex_unlock(&shared_data->game_mutex);
             break;
         }
@@ -228,7 +228,7 @@ int main() {
         pthread_mutex_lock(&shared_data->game_mutex);
         shared_data->state.direction = prev_direction;
         move_snake(&shared_data->state);
-        if (shared_data->state.game_over_flag == -1) {
+        if (shared_data->state.game_over_flag == 1) {
             pthread_mutex_unlock(&shared_data->game_mutex);
             break;
         }
