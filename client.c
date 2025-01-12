@@ -23,6 +23,7 @@ typedef struct {
     sem_t *sem_server_ready;
     int running;
     pthread_t input_tid;
+    pthread_t render_tid;
 } ThreadArgs;
 
 void render_world(GameState *state) {
@@ -206,6 +207,26 @@ void *input_thread(void *arg) {
     return NULL;
 }
 
+void *render_thread(void *arg) {
+    ThreadArgs *args = (ThreadArgs *)arg;
+    SharedData *shared_data = args->shared_data;
+
+    while (args->running) {
+        if (sem_trywait(args->sem_server_ready) == 0) {
+            pthread_mutex_lock(&shared_data->game_mutex);
+            if (!shared_data->state.pause_flag) {
+                render_world(&shared_data->state);
+            }
+            pthread_mutex_unlock(&shared_data->game_mutex);
+        } else {
+            usleep(100000);
+        }
+    }
+
+    return NULL;
+}
+
+
 int main() {
     pid_t pid = fork();
 
@@ -265,6 +286,7 @@ int main() {
     args.running = 1;
 
     pthread_create(&args.input_tid, NULL, input_thread, &args);
+    pthread_create(&args.render_tid, NULL, render_thread, &args);
 
     while (args.running) {
         pthread_mutex_lock(&shared_data->game_mutex);
@@ -273,20 +295,14 @@ int main() {
             break;
         }
         pthread_mutex_unlock(&shared_data->game_mutex);
-
-        if (sem_trywait(sem_server_ready) == 0) {
-            pthread_mutex_lock(&shared_data->game_mutex);
-            if (!shared_data->state.pause_flag) {
-                render_world(&shared_data->state);
-            }
-            pthread_mutex_unlock(&shared_data->game_mutex);
-        } else {
-            usleep(100000);
-        }
+        usleep(100000);
     }
 
     pthread_cancel(args.input_tid);
     pthread_join(args.input_tid, NULL);
+
+    pthread_cancel(args.render_tid);
+    pthread_join(args.render_tid, NULL);
 
     sem_close(sem_server_ready);
     sem_close(sem_client_ready);
