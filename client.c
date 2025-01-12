@@ -28,20 +28,20 @@ typedef struct {
 
 void show_menu(GameState *state) {
     printf("\n=== Nastavenie hry ===\n");
-    printf("Zadajte šírku herného sveta: ");
+    printf("Zadajte šírku herného sveta <%d, %d>: ", MIN_WORLD_WIDTH, MAX_WORLD_WIDTH);
     scanf("%d", &state->width);
-    if (state->width < 10) {
-        state->width = 10;
-    } else if (state->width > 40) {
-        state->width = 40;
+    if (state->width < MIN_WORLD_WIDTH) {
+        state->width = MIN_WORLD_WIDTH;
+    } else if (state->width > MAX_WORLD_WIDTH) {
+        state->width = MAX_WORLD_WIDTH;
     }
 
-    printf("Zadajte výšku herného sveta: ");
+    printf("Zadajte výšku herného sveta <%d, %d>: ", MIN_WORLD_HEIGHT, MAX_WORLD_HEIGHT);
     scanf("%d", &state->height);
-    if (state->height < 10) {
-        state->height = 10;
-    } else if (state->height > 40) {
-        state->height = 40;
+    if (state->height < MIN_WORLD_HEIGHT) {
+        state->height = MIN_WORLD_HEIGHT;
+    } else if (state->height > MAX_WORLD_HEIGHT) {
+        state->height = MAX_WORLD_HEIGHT;
     }
 
     printf("Zadajte typ sveta (0 = bez prekážok, 1 = s prekážkami): ");
@@ -167,7 +167,7 @@ void render_world(GameState *state) {
 
     for (int i = 0; i < state->snake_length; i++) {
         Position part = state->snake[i];
-        world[part.y][part.x] = (i == 0) ? 'H' : 'o';  // Hlava: 'H', telo: 'o'
+        world[part.y][part.x] = (i == 0) ? 'H' : 'o';
     }
 
     for (int i = 0; i < state->num_obstacles; i++) {
@@ -200,7 +200,7 @@ void render_world(GameState *state) {
     }
 
     printf("Skóre: %d\n", state->score);
-    printf("Čas od začiatku hry: %d sekúnd\n", state->elapsed_time);
+    printf("Od začiatku hry ubehlo: %d sekúnd\n", state->elapsed_time);
     if (state->timed_mode) {
         printf("Zostávajúci čas: %d sekúnd\n", state->time_limit - state->elapsed_time);
     }
@@ -237,7 +237,7 @@ void start_server() {
         exit(1);
     }
 
-    sem_t *sem_init_done = sem_open("/sem_init_done", O_CREAT, 0666, 0);
+    sem_t *sem_init_done = sem_open(SEM_INIT_DONE, O_CREAT, 0666, 0);
     if (sem_init_done == SEM_FAILED) {
         perror("Chyba pri vytváraní semaforu inicializácie");
         exit(1);
@@ -245,7 +245,7 @@ void start_server() {
 
     sem_wait(sem_init_done);
     sem_close(sem_init_done);
-    sem_unlink("/sem_init_done");
+    sem_unlink(SEM_INIT_DONE);
 }
 
 void connect_to_resources(SharedData **shared_data, sem_t **sem_server_ready, sem_t **sem_client_ready) {
