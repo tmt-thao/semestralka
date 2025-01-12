@@ -172,12 +172,14 @@ int main() {
 
     Direction prev_direction = shared_data->state.direction;
     time_t start_time = time(NULL);
+    time_t pause_start_time = 0;
+    time_t pause_duration = 0;
 
     while (1) {
         usleep(300000);
 
         pthread_mutex_lock(&shared_data->game_mutex);
-        shared_data->state.elapsed_time = time(NULL) - start_time;
+        shared_data->state.elapsed_time = time(NULL) - start_time - pause_duration;
         if (shared_data->state.timed_mode &&
             shared_data->state.elapsed_time > shared_data->state.time_limit) {
             shared_data->state.game_over_flag = 1;
@@ -193,6 +195,8 @@ int main() {
             pthread_mutex_lock(&shared_data->game_mutex);
             initialize_game(&shared_data->state);
             start_time = time(NULL);
+            pause_start_time = 0;
+            pause_duration = 0;
             shared_data->state.new_game_flag = 0;
             pthread_mutex_unlock(&shared_data->game_mutex);
 
@@ -201,9 +205,11 @@ int main() {
         }
 
         if (shared_data->state.pause_flag) {
+            pause_start_time = time(NULL);
             pthread_mutex_unlock(&shared_data->game_mutex);
             sem_wait(sem_client_ready);
 
+            pause_duration += time(NULL) - pause_start_time;
             if (shared_data->state.game_over_flag == 1) {
                 pthread_mutex_unlock(&shared_data->game_mutex);
                 break;
