@@ -127,31 +127,27 @@ void initialize_game(GameState *state) {
     state->game_over_flag = 0;
 }
 
-int main() {
-    int shmid;
-    SharedData *shared_data;
-    sem_t *sem_server_ready, *sem_client_ready;
-
-    shmid = shmget(SHM_KEY, sizeof(SharedData), IPC_CREAT | 0666);
-    if (shmid == -1) {
+void initialize_resources(SharedData **shared_data, sem_t **sem_server_ready, sem_t **sem_client_ready, int *shmid) {
+    *shmid = shmget(SHM_KEY, sizeof(SharedData), IPC_CREAT | 0666);
+    if (*shmid == -1) {
         perror("Chyba pri vytváraní zdieľanej pamäte");
         exit(1);
     }
 
-    shared_data = (SharedData *)shmat(shmid, NULL, 0);
-    if (shared_data == (void *)-1) {
+    *shared_data = (SharedData *)shmat(*shmid, NULL, 0);
+    if (*shared_data == (void *)-1) {
         perror("Chyba pri pripájaní k zdieľanej pamäti");
         exit(1);
     }
 
-    if (pthread_mutex_init(&shared_data->game_mutex, NULL) != 0) {
+    if (pthread_mutex_init(&(*shared_data)->game_mutex, NULL) != 0) {
         perror("Chyba pri inicializácii mutexu");
         exit(1);
     }
 
-    sem_server_ready = sem_open(SEM_SERVER_READY, O_CREAT, 0666, 0);
-    sem_client_ready = sem_open(SEM_CLIENT_READY, O_CREAT, 0666, 0);
-    if (sem_server_ready == SEM_FAILED || sem_client_ready == SEM_FAILED) {
+    *sem_server_ready = sem_open(SEM_SERVER_READY, O_CREAT, 0666, 0);
+    *sem_client_ready = sem_open(SEM_CLIENT_READY, O_CREAT, 0666, 0);
+    if (*sem_server_ready == SEM_FAILED || *sem_client_ready == SEM_FAILED) {
         perror("Chyba pri vytváraní semaforov");
         exit(1);
     }
@@ -163,13 +159,15 @@ int main() {
     }
     sem_post(sem_init_done);
     sem_close(sem_init_done);
+}
 
-
+void wait_for_game_settings(SharedData *shared_data, sem_t *sem_client_ready) {
     sem_wait(sem_client_ready);
-
     srand(time(NULL));
     initialize_game(&shared_data->state);
+}
 
+void game_loop(SharedData *shared_data, sem_t *sem_server_ready, sem_t *sem_client_ready) {
     Direction prev_direction = shared_data->state.direction;
     time_t start_time = time(NULL);
     time_t pause_start_time = 0;
@@ -189,9 +187,7 @@ int main() {
 
         if (shared_data->state.new_game_flag == 1) {
             pthread_mutex_unlock(&shared_data->game_mutex);
-
             sem_wait(sem_client_ready);
-
             pthread_mutex_lock(&shared_data->game_mutex);
             initialize_game(&shared_data->state);
             start_time = time(NULL);
@@ -199,7 +195,6 @@ int main() {
             pause_duration = 0;
             shared_data->state.new_game_flag = 0;
             pthread_mutex_unlock(&shared_data->game_mutex);
-
             sem_post(sem_server_ready);
             continue;
         }
@@ -208,7 +203,6 @@ int main() {
             pause_start_time = time(NULL);
             pthread_mutex_unlock(&shared_data->game_mutex);
             sem_wait(sem_client_ready);
-
             pause_duration += time(NULL) - pause_start_time;
             if (shared_data->state.game_over_flag == 1) {
                 pthread_mutex_unlock(&shared_data->game_mutex);
@@ -237,10 +231,11 @@ int main() {
             break;
         }
         pthread_mutex_unlock(&shared_data->game_mutex);
-
         sem_post(sem_server_ready);
     }
+}
 
+void cleanup_resources(SharedData *shared_data, sem_t *sem_server_ready, sem_t *sem_client_ready, int shmid) {
     pthread_mutex_destroy(&shared_data->game_mutex);
     sem_close(sem_server_ready);
     sem_close(sem_client_ready);
@@ -248,5 +243,19 @@ int main() {
     sem_unlink(SEM_CLIENT_READY);
     shmdt(shared_data);
     shmctl(shmid, IPC_RMID, NULL);
+}
+
+
+int main() {
+    SharedData *shared_data;
+    sem_t *sem_server_ready, *sem_client_ready;
+    int shmid;
+
+    initialize_resources(&shared_data, &sem_server_ready, &sem_client_ready, &shmid);
+    wait_for_game_settings(shared_data, sem_client_ready);
+    game_loop(shared_data, sem_server_ready, sem_client_ready);
+    cleanup_resources(shared_data, sem_server_ready, sem_client_ready, shmid);
+
     return 0;
 }
+
