@@ -161,7 +161,7 @@ int main() {
         perror("Chyba pri vytváraní semaforu inicializácie");
         exit(1);
     }
-    sem_post(sem_init_done);  // Signalizácia klientovi, že server je pripravený
+    sem_post(sem_init_done);
     sem_close(sem_init_done);
 
 
@@ -179,7 +179,7 @@ int main() {
         pthread_mutex_lock(&shared_data->game_mutex);
         shared_data->state.elapsed_time = time(NULL) - start_time;
         if (shared_data->state.timed_mode &&
-            shared_data->state.elapsed_time >= shared_data->state.time_limit) {
+            shared_data->state.elapsed_time > shared_data->state.time_limit) {
             shared_data->state.game_over_flag = 1;
             pthread_mutex_unlock(&shared_data->game_mutex);
             break;
@@ -188,7 +188,6 @@ int main() {
         if (shared_data->state.new_game_flag == 1) {
             pthread_mutex_unlock(&shared_data->game_mutex);
 
-            // Čakanie na signál od klienta, že sú nové nastavenia pripravené
             sem_wait(sem_client_ready);
 
             pthread_mutex_lock(&shared_data->game_mutex);
@@ -197,7 +196,6 @@ int main() {
             shared_data->state.new_game_flag = 0;
             pthread_mutex_unlock(&shared_data->game_mutex);
 
-            // Signalizácia klientovi, že server je pripravený
             sem_post(sem_server_ready);
             continue;
         }
