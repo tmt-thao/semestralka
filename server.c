@@ -167,6 +167,7 @@ int main() {
 
     sem_wait(sem_client_ready);
 
+    srand(time(NULL));
     initialize_game(&shared_data->state);
 
     Direction prev_direction = shared_data->state.direction;
