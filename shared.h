@@ -1,106 +1,49 @@
 #ifndef SHARED_H
 #define SHARED_H
 
-#include <pthread.h>
-#include <semaphore.h>
-
-#define MAX_WIDTH 50
-#define MAX_HEIGHT 50
+#define MAX_WORLD_WIDTH  100
+#define MAX_WORLD_HEIGHT 100
 #define MAX_SNAKE_LENGTH 200
-#define MAX_OBSTACLES 50
+#define MAX_OBSTACLES    50
 
-#define GAME_TICK_INTERVAL 500000    
-#define GAME_CONTINUE_TIMEOUT 3000000
-
-#define SHM_KEY 37915
-
+// Enum pre smer pohybu hadíka
 typedef enum {
-    UP      = 'w',
-    LEFT    = 'a',
-    DOWN    = 's',
-    RIGHT   = 'd'
+    DIRECTION_UP,
+    DIRECTION_DOWN,
+    DIRECTION_LEFT,
+    DIRECTION_RIGHT
 } Direction;
 
+// Enum pre typ sveta
 typedef enum {
-    WRAP_AROUND,
-    OBSTACLES
+    WORLD_TYPE_EMPTY,
+    WORLD_TYPE_OBSTACLES
 } WorldType;
 
-typedef enum {
-    STANDARD,
-    TIMED
-} GameType;
-
-typedef enum {
-    EMPTY_GRID  = '.',
-    SNAKE_HEAD  = 'H',
-    SNAKE_BODY  = 'O',
-    FRUIT       = 'F',
-    OBSTACLE    = '#'
-} GridValue;
-
-typedef enum {
-    PAUSE_CONTINUE,
-    PAUSE_RESTART,
-    PAUSE_END_GAME
-} PauseChoice;
-
-typedef enum {
-    GAME_RUNNING,
-    GAME_PAUSED,
-    GAME_OVER
-} GameStatus;
-
+// Štruktúra pre pozíciu v hernom svete
 typedef struct {
     int x;
     int y;
 } Position;
 
-typedef struct {
-    Position position;
-} Fruit;
-
-typedef struct {
-    int length;
-    Position body[MAX_SNAKE_LENGTH];
-    Direction direction;
-} Snake;
-
-typedef struct {
-    int count;
-    Position map[MAX_OBSTACLES];
-} Obstacles;
-
+// Štruktúra pre herný stav
 typedef struct {
     int width;
     int height;
-    GridValue grid[MAX_HEIGHT][MAX_WIDTH];
-    Fruit fruit;
-    Snake snake;
-    Obstacles obstacles;
-} GameGrid;
-
-typedef struct {
-    GameGrid grid;
+    Position snake[MAX_SNAKE_LENGTH];
+    int snake_length;
+    Position fruit;
+    Position obstacles[MAX_OBSTACLES];
+    int num_obstacles;
     int score;
-
     WorldType world_type;
-    GameType game_type;
-
-    GameStatus status;
-    PauseChoice pause_choice;
-    
-    int elapsed_time;
-    int time_limit;
-
-    char input;
-} Game;
-
-typedef struct {
-    Game game;
-    pthread_mutex_t mutex;
-    sem_t sem_server_ready;
-    sem_t sem_client_ready;
-} SharedData;
+    Direction direction;
+    int timed_mode;       // 1 pre časový režim, 0 pre štandardný režim
+    int time_limit;       // Časový limit v sekundách pre časový režim
+    int elapsed_time;     // Uplynulý čas od začiatku hry
+	int pause_flag;
+    int game_over_flag;
+    int new_game_flag;
+} GameState;
 
 #endif // SHARED_H

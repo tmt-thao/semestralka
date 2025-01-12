@@ -1,14 +1,10 @@
-CC = gcc
-CFLAGS = -g -Wall -Wextra -pthread
-TARGETS = server client
-
-all: $(TARGETS)
+all: server client
 
 server: server.c
-	$(CC) $(CFLAGS) server.c -o server
+	gcc -g -o server server.c -lpthread -lrt
 
 client: client.c
-	$(CC) $(CFLAGS) client.c -o client
+	gcc -g -o client client.c -lpthread -lrt
 
 clean:
-	rm -f $(TARGETS)
+	rm -f server client
